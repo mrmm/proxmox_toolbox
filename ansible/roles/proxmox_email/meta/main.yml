@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: proxmox_email
+  author: Tonton Jo
+  description: Configure email notifications for Proxmox (legacy)
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - proxmox
+    - email
+    - postfix
+    - notifications
+
+dependencies: []
+collections:
+  - community.general

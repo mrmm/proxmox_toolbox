@@ -1,0 +1,14 @@
+---
+# defaults file for proxmox_storage
+
+# SWAP configuration
+proxmox_configure_swap: false
+proxmox_swap_swappiness: 10  # 0-100, lower = less swap usage
+proxmox_disable_swap: false
+
+# S.M.A.R.T. configuration
+proxmox_enable_smart: false
+proxmox_smart_short_test_schedule: "22:00"  # Daily at 22:00
+proxmox_smart_short_test_day: "Sun"  # Every Sunday
+proxmox_smart_long_test_schedule: "22:00"  # Monthly
+proxmox_smart_long_test_day: "01"  # 1st of month

@@ -1,0 +1,49 @@
+---
+# Main playbook for Proxmox Toolbox
+# This is a comprehensive example showing all available roles
+
+- name: Configure Proxmox Servers
+  hosts: proxmox
+  become: true
+
+  tasks:
+    - name: Configure repositories
+      ansible.builtin.include_role:
+        name: proxmox_repository
+      tags: ['repository', 'setup']
+
+    - name: Update system
+      ansible.builtin.include_role:
+        name: proxmox_updates
+      tags: ['updates', 'setup']
+
+    - name: Install essential packages
+      ansible.builtin.include_role:
+        name: proxmox_packages
+      tags: ['packages', 'setup']
+
+    - name: Configure security
+      ansible.builtin.include_role:
+        name: proxmox_security
+      tags: ['security', 'setup']
+
+    - name: Configure storage
+      ansible.builtin.include_role:
+        name: proxmox_storage
+      tags: ['storage', 'setup']
+
+    - name: Configure monitoring
+      ansible.builtin.include_role:
+        name: proxmox_monitoring
+      tags: ['monitoring', 'setup']
+
+    - name: Configure email notifications
+      ansible.builtin.include_role:
+        name: proxmox_email
+      tags: ['email', 'setup']
+      when: ansible_facts['distribution_major_version'] | int < 8
+
+    - name: Create backup
+      ansible.builtin.include_role:
+        name: proxmox_backup
+      tags: ['backup']

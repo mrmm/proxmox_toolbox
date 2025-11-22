@@ -1,0 +1,92 @@
+---
+# tasks file for proxmox_storage
+
+# SWAP configuration
+- name: Configure SWAP
+  when: proxmox_configure_swap | bool
+  block:
+    - name: Check if swap is enabled
+      ansible.builtin.shell: |
+        lsblk | grep -qi swap
+      register: _swap_enabled
+      changed_when: false
+      failed_when: false
+
+    - name: Get current swappiness value
+      ansible.builtin.command: cat /proc/sys/vm/swappiness
+      register: _current_swappiness
+      changed_when: false
+      when: _swap_enabled.rc == 0
+
+    - name: Display current swappiness
+      ansible.builtin.debug:
+        msg: "Current swappiness: {{ _current_swappiness.stdout }}"
+      when: _swap_enabled.rc == 0
+
+    - name: Set swappiness value
+      when:
+        - _swap_enabled.rc == 0
+        - not proxmox_disable_swap | bool
+      block:
+        - name: Set swappiness in runtime
+          ansible.builtin.sysctl:
+            name: vm.swappiness
+            value: "{{ proxmox_swap_swappiness }}"
+            state: present
+            sysctl_set: true
+            reload: true
+
+        - name: Persist swappiness configuration
+          ansible.builtin.copy:
+            dest: /etc/sysctl.d/swappiness.conf
+            content: |
+              vm.swappiness={{ proxmox_swap_swappiness }}
+            mode: '0644'
+
+        - name: Reload swap
+          ansible.builtin.shell: |
+            swapoff -a && swapon -a
+          changed_when: true
+
+    - name: Disable swap
+      when:
+        - _swap_enabled.rc == 0
+        - proxmox_disable_swap | bool
+      block:
+        - name: Turn off swap
+          ansible.builtin.command: swapoff -a
+          changed_when: true
+
+        - name: Remove swap from fstab
+          ansible.builtin.lineinfile:
+            path: /etc/fstab
+            regexp: '.*swap.*'
+            state: absent
+
+# S.M.A.R.T. configuration
+- name: Configure S.M.A.R.T. tests
+  when: proxmox_enable_smart | bool
+  block:
+    - name: Check if S.M.A.R.T. already configured
+      ansible.builtin.shell: |
+        grep -Ewqi "(S/../../7/22|L/../01/./22)" /etc/smartd.conf
+      register: _smart_configured
+      changed_when: false
+      failed_when: false
+
+    - name: Backup smartd.conf
+      ansible.builtin.copy:
+        src: /etc/smartd.conf
+        dest: /etc/smartd.conf.BCK
+        remote_src: true
+        mode: '0644'
+      when: _smart_configured.rc != 0
+
+    - name: Configure S.M.A.R.T. self-tests
+      ansible.builtin.copy:
+        dest: /etc/smartd.conf
+        content: |
+          DEVICESCAN -d auto -n never -a -s (S/../../{{ proxmox_smart_short_test_day }}/{{ proxmox_smart_short_test_schedule | regex_replace(':', '') | truncate(2, True, '') }}|L/../{{ proxmox_smart_long_test_day }}/./{{ proxmox_smart_long_test_schedule | regex_replace(':', '') | truncate(2, True, '') }}) -m root -M exec /usr/share/smartmontools/smartd-runner
+        mode: '0644'
+      when: _smart_configured.rc != 0
+      notify: restart_smartd

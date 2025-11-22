@@ -1,0 +1,58 @@
+---
+# Configure PVE repositories for version < 9 (using .list format)
+
+- name: Check if no-subscription repo already configured in sources.list
+  ansible.builtin.shell: |
+    grep -Fq "deb http://download.proxmox.com/debian/pve" /etc/apt/sources.list
+  register: _nosub_configured
+  changed_when: false
+  failed_when: false
+
+- name: Add no-subscription repository to sources.list
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list
+    line: "deb http://download.proxmox.com/debian/pve {{ _proxmox_distribution }} pve-no-subscription"
+    create: true
+    mode: '0644'
+  when:
+    - proxmox_enable_no_subscription | bool
+    - _nosub_configured.rc != 0
+
+- name: Check enterprise repository status
+  ansible.builtin.shell: |
+    grep -Fq "#deb https://enterprise.proxmox.com/debian/pve" /etc/apt/sources.list.d/pve-enterprise.list
+  register: _enterprise_commented
+  changed_when: false
+  failed_when: false
+
+- name: Comment out enterprise repository
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/pve-enterprise.list
+    regexp: '^(deb.*)$'
+    replace: '#\1'
+  when:
+    - proxmox_disable_enterprise | bool
+    - _enterprise_commented.rc != 0
+
+- name: Check Ceph enterprise repository exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/ceph.list
+  register: _ceph_list_exists
+
+- name: Check Ceph enterprise repository status
+  ansible.builtin.shell: |
+    grep -Fq "#deb https://enterprise.proxmox.com/debian/ceph" /etc/apt/sources.list.d/ceph.list
+  register: _ceph_commented
+  changed_when: false
+  failed_when: false
+  when: _ceph_list_exists.stat.exists
+
+- name: Comment out Ceph enterprise repository
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/ceph.list
+    regexp: '^(deb.*)$'
+    replace: '#\1'
+  when:
+    - proxmox_disable_enterprise | bool
+    - _ceph_list_exists.stat.exists
+    - _ceph_commented.rc != 0

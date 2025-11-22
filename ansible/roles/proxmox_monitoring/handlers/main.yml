@@ -1,0 +1,7 @@
+---
+# handlers file for proxmox_monitoring
+
+- name: restart_snmpd
+  ansible.builtin.systemd:
+    name: snmpd
+    state: restarted

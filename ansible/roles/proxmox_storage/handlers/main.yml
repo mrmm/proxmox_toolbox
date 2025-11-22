@@ -1,0 +1,7 @@
+---
+# handlers file for proxmox_storage
+
+- name: restart_smartd
+  ansible.builtin.systemd:
+    name: smartd
+    state: restarted

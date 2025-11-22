@@ -1,0 +1,91 @@
+---
+# tasks file for proxmox_repository
+
+- name: Detect Proxmox type
+  ansible.builtin.set_fact:
+    _proxmox_type: "{{ proxmox_type | default('auto') }}"
+  when: proxmox_type is not defined or proxmox_type == 'auto'
+
+- name: Auto-detect Proxmox type from installed packages
+  ansible.builtin.shell: |
+    if dpkg -l | grep -q "proxmox-ve"; then
+      echo "pve"
+    elif dpkg -l | grep -q "proxmox-backup-server"; then
+      echo "pbs"
+    else
+      echo "unknown"
+    fi
+  register: _detected_type
+  changed_when: false
+  when: _proxmox_type is not defined or _proxmox_type == 'auto'
+
+- name: Set Proxmox type fact
+  ansible.builtin.set_fact:
+    _proxmox_type: "{{ _detected_type.stdout if (_proxmox_type | default('auto')) == 'auto' else _proxmox_type }}"
+
+- name: Fail if Proxmox type is unknown
+  ansible.builtin.fail:
+    msg: "Unable to detect Proxmox type. Please set proxmox_type variable to 'pve' or 'pbs'"
+  when: _proxmox_type == 'unknown'
+
+- name: Detect Proxmox version
+  ansible.builtin.shell: |
+    if [ "{{ _proxmox_type }}" = "pve" ]; then
+      pveversion | grep -oP 'pve-manager/\K[0-9]+' | head -1
+    else
+      proxmox-backup-manager version | grep -oP 'proxmox-backup-server \K[0-9]+' | head -1
+    fi
+  register: _detected_version
+  changed_when: false
+  when: proxmox_version is not defined or proxmox_version == 'auto'
+
+- name: Set Proxmox version fact
+  ansible.builtin.set_fact:
+    _proxmox_version: "{{ _detected_version.stdout if (proxmox_version | default('auto')) == 'auto' else proxmox_version }}"
+
+- name: Detect distribution codename
+  ansible.builtin.shell: ". /etc/os-release && echo $VERSION_CODENAME"
+  register: _detected_distribution
+  changed_when: false
+  when: proxmox_distribution is not defined or proxmox_distribution == 'auto'
+
+- name: Set distribution fact
+  ansible.builtin.set_fact:
+    _proxmox_distribution: "{{ _detected_distribution.stdout if (proxmox_distribution | default('auto')) == 'auto' else proxmox_distribution }}"
+
+- name: Display detected configuration
+  ansible.builtin.debug:
+    msg:
+      - "Proxmox Type: {{ _proxmox_type }}"
+      - "Proxmox Version: {{ _proxmox_version }}"
+      - "Distribution: {{ _proxmox_distribution }}"
+
+# Include version-specific tasks
+- name: Configure PVE repositories (version >= 9)
+  ansible.builtin.include_tasks: configure_pve_modern.yml
+  when:
+    - _proxmox_type == 'pve'
+    - _proxmox_version | int >= 9
+
+- name: Configure PVE repositories (version < 9)
+  ansible.builtin.include_tasks: configure_pve_legacy.yml
+  when:
+    - _proxmox_type == 'pve'
+    - _proxmox_version | int < 9
+
+- name: Configure PBS repositories (version >= 4)
+  ansible.builtin.include_tasks: configure_pbs_modern.yml
+  when:
+    - _proxmox_type == 'pbs'
+    - _proxmox_version | int >= 4
+
+- name: Configure PBS repositories (version < 4)
+  ansible.builtin.include_tasks: configure_pbs_legacy.yml
+  when:
+    - _proxmox_type == 'pbs'
+    - _proxmox_version | int < 4
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: proxmox_update_cache | bool

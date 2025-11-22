@@ -1,0 +1,26 @@
+---
+# defaults file for proxmox_repository
+
+# Auto-detect Proxmox type (pve or pbs) - can be overridden
+# proxmox_type: auto  # auto, pve, or pbs
+
+# Auto-detect Proxmox version - can be overridden
+# proxmox_version: auto  # auto, 7, 8, or 9
+
+# Auto-detect distribution codename - can be overridden
+# proxmox_distribution: auto  # auto, bullseye, or bookworm
+
+# Whether to disable enterprise repositories
+proxmox_disable_enterprise: true
+
+# Whether to enable no-subscription repositories
+proxmox_enable_no_subscription: true
+
+# Whether to clean up old .list files after migration to .sources
+proxmox_cleanup_old_sources: true
+
+# Whether to suggest running apt modernize-sources on upgrades
+proxmox_suggest_modernize: true
+
+# Update apt cache after configuration
+proxmox_update_cache: true

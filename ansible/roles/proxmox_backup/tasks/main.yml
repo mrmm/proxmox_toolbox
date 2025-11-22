@@ -1,0 +1,93 @@
+---
+# tasks file for proxmox_backup
+
+- name: Create backup
+  when: proxmox_backup_enabled | bool
+  block:
+    - name: Create backup directory
+      ansible.builtin.file:
+        path: "{{ proxmox_backup_dir }}"
+        state: directory
+        mode: '0700'
+
+    - name: Set backup filename
+      ansible.builtin.set_fact:
+        _backup_filename: "{{ ansible_hostname }}-{{ ansible_date_time.iso8601_basic_short }}.tar.gz"
+
+    - name: Create configuration backup
+      community.general.archive:
+        path: "{{ proxmox_backup_paths }}"
+        dest: "{{ proxmox_backup_dir }}/{{ _backup_filename }}"
+        format: gz
+        force_archive: true
+      register: _backup_result
+
+    - name: Display backup location
+      ansible.builtin.debug:
+        msg: "Backup created at {{ proxmox_backup_dir }}/{{ _backup_filename }}"
+
+    - name: Find old backups
+      ansible.builtin.find:
+        paths: "{{ proxmox_backup_dir }}"
+        patterns: "*.tar.gz"
+        age: "{{ proxmox_backup_retention_days }}d"
+      register: _old_backups
+
+    - name: Remove old backups
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ _old_backups.files }}"
+      when: _old_backups.files | length > 0
+
+- name: Restore backup
+  when: proxmox_restore_enabled | bool and proxmox_restore_archive | length > 0
+  block:
+    - name: Check if restore archive exists
+      ansible.builtin.stat:
+        path: "{{ proxmox_restore_archive }}"
+      register: _restore_archive
+
+    - name: Fail if archive doesn't exist
+      ansible.builtin.fail:
+        msg: "Restore archive not found: {{ proxmox_restore_archive }}"
+      when: not _restore_archive.stat.exists
+
+    - name: Extract backup archive
+      ansible.builtin.unarchive:
+        src: "{{ proxmox_restore_archive }}"
+        dest: /
+        remote_src: true
+
+    - name: Detect Proxmox type
+      ansible.builtin.shell: |
+        if dpkg -l | grep -q "proxmox-ve"; then
+          echo "pve"
+        elif dpkg -l | grep -q "proxmox-backup-server"; then
+          echo "pbs"
+        else
+          echo "unknown"
+        fi
+      register: _detected_type
+      changed_when: false
+
+    - name: Restart services after restore
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - networking
+        - ssh
+        - sshd
+        - fail2ban
+      failed_when: false
+
+    - name: Restart Proxmox services
+      ansible.builtin.systemd:
+        name: "{{ 'pveproxy' if _detected_type.stdout == 'pve' else 'proxmox-backup-proxy' }}"
+        state: restarted
+      when: _detected_type.stdout in ['pve', 'pbs']
+
+    - name: Display restore completion message
+      ansible.builtin.debug:
+        msg: "Configuration restored from {{ proxmox_restore_archive }}"

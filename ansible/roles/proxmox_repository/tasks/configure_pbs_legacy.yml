@@ -1,0 +1,67 @@
+---
+# Configure PBS repositories for version < 4 (using .list format)
+
+- name: Check if sources.list exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list
+  register: _sources_list_exists
+
+- name: Create sources.list if missing (Docker container case)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list
+    content: |
+      deb http://download.proxmox.com/debian/pbs {{ _proxmox_distribution }} pbs-no-subscription
+    mode: '0644'
+  when:
+    - proxmox_enable_no_subscription | bool
+    - not _sources_list_exists.stat.exists
+
+- name: Download Proxmox release key if sources.list was missing
+  ansible.builtin.get_url:
+    url: "https://enterprise.proxmox.com/debian/proxmox-release-{{ _proxmox_distribution }}.gpg"
+    dest: "/etc/apt/trusted.gpg.d/proxmox-release-{{ _proxmox_distribution }}.gpg"
+    mode: '0644'
+  when:
+    - not _sources_list_exists.stat.exists
+
+- name: Check if no-subscription repo already configured in sources.list
+  ansible.builtin.shell: |
+    grep -Fq "deb http://download.proxmox.com/debian/pbs" /etc/apt/sources.list
+  register: _nosub_configured
+  changed_when: false
+  failed_when: false
+  when: _sources_list_exists.stat.exists
+
+- name: Add no-subscription repository to sources.list
+  ansible.builtin.lineinfile:
+    path: /etc/apt/sources.list
+    line: "deb http://download.proxmox.com/debian/pbs {{ _proxmox_distribution }} pbs-no-subscription"
+    create: true
+    mode: '0644'
+  when:
+    - proxmox_enable_no_subscription | bool
+    - _sources_list_exists.stat.exists
+    - _nosub_configured.rc != 0
+
+- name: Check PBS enterprise repository exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/pbs-enterprise.list
+  register: _pbs_enterprise_exists
+
+- name: Check enterprise repository status
+  ansible.builtin.shell: |
+    grep -Fq "#deb https://enterprise.proxmox.com/debian/pbs" /etc/apt/sources.list.d/pbs-enterprise.list
+  register: _enterprise_commented
+  changed_when: false
+  failed_when: false
+  when: _pbs_enterprise_exists.stat.exists
+
+- name: Comment out PBS enterprise repository
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/pbs-enterprise.list
+    regexp: '^(deb.*)$'
+    replace: '#\1'
+  when:
+    - proxmox_disable_enterprise | bool
+    - _pbs_enterprise_exists.stat.exists
+    - _enterprise_commented.rc != 0

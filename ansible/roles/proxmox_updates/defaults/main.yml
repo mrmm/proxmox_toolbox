@@ -1,0 +1,26 @@
+---
+# defaults file for proxmox_updates
+
+# Whether to update apt cache before upgrading
+proxmox_update_cache: true
+
+# Whether to perform dist-upgrade
+proxmox_dist_upgrade: true
+
+# Whether to remove subscription message
+proxmox_remove_subscription_message: true
+
+# Whether to install proxmox-update command wrapper
+proxmox_install_update_command: true
+
+# Version of the update command wrapper
+proxmox_update_command_version: "1.2"
+
+# URL for the update command wrapper
+proxmox_update_command_url: "https://raw.githubusercontent.com/Tontonjo/proxmox_toolbox/main/bin/proxmox-update"
+
+# Path to proxmoxlib.js file
+proxmox_lib_path: "/usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js"
+
+# Whether to restart proxy service after subscription message removal
+proxmox_restart_proxy: true

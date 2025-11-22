@@ -1,0 +1,86 @@
+---
+# tasks file for proxmox_updates
+
+- name: Detect Proxmox type
+  ansible.builtin.shell: |
+    if dpkg -l | grep -q "proxmox-ve"; then
+      echo "pve"
+    elif dpkg -l | grep -q "proxmox-backup-server"; then
+      echo "pbs"
+    else
+      echo "unknown"
+    fi
+  register: _detected_type
+  changed_when: false
+
+- name: Set Proxmox type fact
+  ansible.builtin.set_fact:
+    _proxmox_type: "{{ _detected_type.stdout }}"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  when: proxmox_update_cache | bool
+
+- name: Perform dist-upgrade
+  ansible.builtin.apt:
+    upgrade: dist
+    update_cache: false
+  when: proxmox_dist_upgrade | bool
+  register: _upgrade_result
+
+- name: Check if proxmox.sources exists (modern format)
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/proxmox.sources
+  register: _modern_sources
+
+- name: Check if no-subscription in sources.list (legacy format)
+  ansible.builtin.shell: |
+    grep -Ewqi "no-subscription" /etc/apt/sources.list
+  register: _legacy_sources
+  changed_when: false
+  failed_when: false
+
+- name: Remove subscription message
+  when:
+    - proxmox_remove_subscription_message | bool
+    - _modern_sources.stat.exists or _legacy_sources.rc == 0
+  block:
+    - name: Check if subscription message already removed
+      ansible.builtin.shell: |
+        grep -q "res\.data\.status\.toLowerCase() *==\{0,2\} *'active'" {{ proxmox_lib_path }}
+      register: _subscription_removed
+      changed_when: false
+      failed_when: false
+
+    - name: Remove subscription message from proxmoxlib.js
+      ansible.builtin.replace:
+        path: "{{ proxmox_lib_path }}"
+        regexp: "!== 'active'"
+        replace: "=== 'active'"
+        backup: true
+      when: _subscription_removed.rc != 0
+      notify: restart_proxmox_proxy
+
+- name: Check if proxmox-update command exists
+  ansible.builtin.stat:
+    path: /usr/bin/proxmox-update
+  register: _update_command_exists
+
+- name: Check proxmox-update command version
+  ansible.builtin.shell: |
+    grep -Fqs "{{ proxmox_update_command_version }}" /usr/bin/proxmox-update
+  register: _update_command_version
+  changed_when: false
+  failed_when: false
+  when: _update_command_exists.stat.exists
+
+- name: Install/update proxmox-update command
+  ansible.builtin.get_url:
+    url: "{{ proxmox_update_command_url }}"
+    dest: /usr/bin/proxmox-update
+    mode: '0755'
+  when:
+    - proxmox_install_update_command | bool
+    - not _update_command_exists.stat.exists or _update_command_version.rc != 0

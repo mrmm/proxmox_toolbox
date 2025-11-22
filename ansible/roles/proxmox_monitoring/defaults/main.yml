@@ -1,0 +1,17 @@
+---
+# defaults file for proxmox_monitoring
+
+# Whether to enable SNMP
+proxmox_enable_snmp: false
+
+# SNMP version (2 or 3)
+proxmox_snmp_version: 3
+
+# SNMPv2 configuration
+proxmox_snmp_ro_community: "public"
+proxmox_snmp_allowed_subnet: ""  # e.g., "192.168.1.0/24"
+
+# SNMPv3 configuration (MD5/DES)
+proxmox_snmp_v3_user: "monitor"
+proxmox_snmp_v3_auth_pass: "changeme123"
+proxmox_snmp_v3_priv_pass: "changeme456"

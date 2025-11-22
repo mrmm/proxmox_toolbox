@@ -1,0 +1,29 @@
+---
+# defaults file for proxmox_security
+
+# Fail2ban configuration
+proxmox_enable_fail2ban: true
+proxmox_fail2ban_backend: systemd
+
+# SSH user configuration
+proxmox_create_ssh_user: false
+proxmox_ssh_username: ""
+proxmox_ssh_user_password: ""
+proxmox_ssh_user_shell: /bin/bash
+proxmox_ssh_allow_sudo_group: true
+proxmox_ssh_deny_root_login: false
+proxmox_ssh_generate_keys: true
+
+# PVE user management (only for Proxmox VE)
+proxmox_create_pve_admin: false
+proxmox_pve_admin_username: ""
+proxmox_pve_admin_password: ""
+proxmox_pve_admin_group: "administrators"
+proxmox_pve_admin_group_comment: "System Administrators"
+proxmox_pve_disable_root_pam: false
+
+# Fail2ban configuration files source
+proxmox_fail2ban_pve_filter_src: "{{ role_path }}/files/pve/filter.d/proxmox-virtual-environement.conf"
+proxmox_fail2ban_pve_jail_src: "{{ role_path }}/files/pve/jail.d/proxmox-virtual-environement.conf"
+proxmox_fail2ban_pbs_filter_src: "{{ role_path }}/files/pbs/filter.d/proxmox-backup-server.conf"
+proxmox_fail2ban_pbs_jail_src: "{{ role_path }}/files/pbs/jail.d/proxmox-backup-server.conf"

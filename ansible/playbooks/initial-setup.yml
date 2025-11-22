@@ -1,0 +1,38 @@
+---
+# Initial setup playbook for new Proxmox installations
+# This configures a fresh Proxmox server with recommended settings
+
+- name: Initial Proxmox Setup
+  hosts: proxmox
+  become: true
+
+  vars:
+    # Repository configuration
+    proxmox_enable_no_subscription: true
+    proxmox_disable_enterprise: true
+
+    # System updates
+    proxmox_dist_upgrade: true
+    proxmox_remove_subscription_message: true
+    proxmox_install_update_command: true
+
+    # Essential packages
+    proxmox_install_amd_microcode: true  # Set to false for Intel CPUs
+
+    # Security - Fail2ban
+    proxmox_enable_fail2ban: true
+
+    # Storage - SWAP (recommended for production)
+    proxmox_configure_swap: true
+    proxmox_swap_swappiness: 10
+
+    # Storage - SMART tests
+    proxmox_enable_smart: true
+
+  roles:
+    - proxmox_repository
+    - proxmox_updates
+    - proxmox_packages
+    - proxmox_security
+    - proxmox_storage
+    - proxmox_backup

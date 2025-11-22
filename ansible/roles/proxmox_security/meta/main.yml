@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: proxmox_security
+  author: Tonton Jo
+  description: Configure security settings for Proxmox (fail2ban, SSH, user management)
+  company: tontonjo
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - proxmox
+    - pve
+    - pbs
+    - security
+    - fail2ban
+    - ssh
+
+dependencies: []
+
+collections:
+  - community.general
+  - ansible.posix

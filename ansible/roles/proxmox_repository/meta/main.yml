@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  role_name: proxmox_repository
+  author: Tonton Jo
+  description: Configure Proxmox VE/PBS no-subscription repositories
+  company: tontonjo
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye  # Proxmox 7
+        - bookworm  # Proxmox 8/9
+
+  galaxy_tags:
+    - proxmox
+    - pve
+    - pbs
+    - repository
+    - system
+
+dependencies: []
+
+collections:
+  - community.general
+  - ansible.posix

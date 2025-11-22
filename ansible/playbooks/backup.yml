@@ -1,0 +1,20 @@
+---
+# Backup playbook for Proxmox servers
+# Creates a backup of all critical configurations
+
+- name: Backup Proxmox Configuration
+  hosts: proxmox
+  become: true
+
+  vars:
+    proxmox_backup_enabled: true
+    proxmox_backup_dir: "/root/proxmox_config_backups"
+    proxmox_backup_retention_days: 30
+
+  roles:
+    - proxmox_backup
+
+  post_tasks:
+    - name: Display backup information
+      ansible.builtin.debug:
+        msg: "Backup created in {{ proxmox_backup_dir }}"

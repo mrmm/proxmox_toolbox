@@ -10,8 +10,23 @@
 
 ## Informations:
 
-This little tool aim to get smalls one-time configurations for Proxmox Virtual environement and backup server hosts in no time.  
-It automatically will find if the host is a pve or a pbs host and setup accordingly.  
+This toolbox provides two ways to configure Proxmox servers:
+1. **Bash Script** (`proxmox_toolbox.sh`): Interactive script for manual, one-time configurations
+2. **Ansible Roles** (`ansible/`): Automated, idempotent roles for infrastructure-as-code deployments
+
+Both tools automatically detect if the host is a PVE or PBS host and configure accordingly.
+
+### 🆕 NEW: Ansible Roles Available!
+
+The entire functionality of the bash script is now available as **Ansible roles** with:
+- ✅ Full support for Proxmox VE 7, 8, 9 and PBS 3, 4
+- ✅ Idempotent operations (can run multiple times safely)
+- ✅ Infrastructure as Code approach
+- ✅ Well-documented with examples
+- ✅ Official Ansible Galaxy collections support
+- ✅ Comprehensive role documentation
+
+See [ansible/README.md](ansible/README.md) for detailed information.  
 
 ### Demonstration:  
 You can watch a demonstration of the tool [in this playlist](https://www.youtube.com/playlist?list=PLU73OWQhDzsTpLpVNspJ14rVrXAmo2Biu) 
@@ -48,12 +63,39 @@ You can watch a demonstration of the tool [in this playlist](https://www.youtube
 ## News  
 2023.11.24: Proxmox 8.1 - Emails Notifications - Proxmox VE now supports email configurations very well from the GUI, the toolbox wont get any update related to this function anymore.  
 
-## Usage and arguments:
-###  Download and execute:  
+## Usage:
+
+### Option 1: Ansible Roles (Recommended for Production)
+
+For automated, repeatable deployments across multiple servers:
+
+```shell
+# Clone the repository
+git clone https://github.com/Tontonjo/proxmox_toolbox.git
+cd proxmox_toolbox/ansible
+
+# Install requirements
+ansible-galaxy collection install -r requirements.yml
+
+# Configure your inventory
+cp inventory/hosts.yml inventory/my-hosts.yml
+# Edit inventory/my-hosts.yml with your servers
+
+# Run initial setup
+ansible-playbook -i inventory/my-hosts.yml playbooks/initial-setup.yml
+```
+
+See [ansible/README.md](ansible/README.md) for complete documentation and examples.
+
+### Option 2: Interactive Bash Script
+
+For one-time, manual configuration:
+
+####  Download and execute:
 ```shell
 wget -qO proxmox_toolbox.sh https://raw.githubusercontent.com/Tontonjo/proxmox_toolbox/main/proxmox_toolbox.sh && bash proxmox_toolbox.sh
 ```
-### OR just execute:
+#### OR just execute:
 ```shell
 bash <(wget -qO- https://raw.githubusercontent.com/Tontonjo/proxmox_toolbox/main/proxmox_toolbox.sh)
 ```

@@ -1,0 +1,71 @@
+---
+# tasks file for proxmox_monitoring
+
+- name: Configure SNMP monitoring
+  when: proxmox_enable_snmp | bool
+  block:
+    - name: Install SNMP packages
+      ansible.builtin.apt:
+        name:
+          - snmpd
+          - libsnmp-dev
+        state: present
+        update_cache: true
+
+    - name: Backup original snmpd.conf
+      ansible.builtin.copy:
+        src: /etc/snmp/snmpd.conf
+        dest: /etc/snmp/snmpd.conf.backup
+        remote_src: true
+        mode: '0644'
+        force: false
+
+    - name: Deploy base snmpd.conf template
+      ansible.builtin.template:
+        src: snmpd.conf.j2
+        dest: /etc/snmp/snmpd.conf
+        mode: '0644'
+      notify: restart_snmpd
+
+    - name: Configure SNMPv2
+      when: proxmox_snmp_version | int == 2
+      block:
+        - name: Add SNMPv2 community configuration
+          ansible.builtin.lineinfile:
+            path: /etc/snmp/snmpd.conf
+            line: "rocommunity {{ proxmox_snmp_ro_community }} {{ proxmox_snmp_allowed_subnet }}"
+            create: false
+          notify: restart_snmpd
+
+    - name: Configure SNMPv3
+      when: proxmox_snmp_version | int == 3
+      block:
+        - name: Stop snmpd before SNMPv3 user creation
+          ansible.builtin.systemd:
+            name: snmpd
+            state: stopped
+
+        - name: Remove old SNMPv3 user configuration
+          ansible.builtin.file:
+            path: /usr/share/snmp/snmpd.conf
+            state: absent
+
+        - name: Create SNMPv3 user
+          ansible.builtin.expect:
+            command: net-snmp-config --create-snmpv3-user -ro -a MD5 -x DES {{ proxmox_snmp_v3_user }}
+            responses:
+              '(?i)authentication pass phrase:': "{{ proxmox_snmp_v3_auth_pass }}"
+              '(?i)encryption pass phrase:': "{{ proxmox_snmp_v3_priv_pass }}"
+            timeout: 30
+          no_log: true
+
+        - name: Start snmpd after SNMPv3 configuration
+          ansible.builtin.systemd:
+            name: snmpd
+            state: started
+
+    - name: Enable and start snmpd service
+      ansible.builtin.systemd:
+        name: snmpd
+        enabled: true
+        state: started

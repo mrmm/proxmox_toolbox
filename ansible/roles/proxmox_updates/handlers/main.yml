@@ -1,0 +1,8 @@
+---
+# handlers file for proxmox_updates
+
+- name: restart_proxmox_proxy
+  ansible.builtin.systemd:
+    name: "{{ 'pveproxy' if _proxmox_type == 'pve' else 'proxmox-backup-proxy' }}"
+    state: restarted
+  when: proxmox_restart_proxy | bool

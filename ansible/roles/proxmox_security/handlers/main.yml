@@ -1,0 +1,16 @@
+---
+# handlers file for proxmox_security
+
+- name: restart_fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: restarted
+
+- name: restart_ssh
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - ssh
+    - sshd
+  failed_when: false

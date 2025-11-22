@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: proxmox_packages
+  author: Tonton Jo
+  description: Install useful dependencies for Proxmox VE/PBS
+  company: tontonjo
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - proxmox
+    - pve
+    - pbs
+    - packages
+    - system
+
+dependencies: []
+
+collections:
+  - community.general

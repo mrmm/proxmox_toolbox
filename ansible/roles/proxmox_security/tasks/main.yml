@@ -1,0 +1,206 @@
+---
+# tasks file for proxmox_security
+
+- name: Detect Proxmox type
+  ansible.builtin.shell: |
+    if dpkg -l | grep -q "proxmox-ve"; then
+      echo "pve"
+    elif dpkg -l | grep -q "proxmox-backup-server"; then
+      echo "pbs"
+    else
+      echo "unknown"
+    fi
+  register: _detected_type
+  changed_when: false
+
+- name: Set Proxmox type fact
+  ansible.builtin.set_fact:
+    _proxmox_type: "{{ _detected_type.stdout }}"
+
+# Fail2ban configuration
+- name: Configure fail2ban
+  when: proxmox_enable_fail2ban | bool
+  block:
+    - name: Install fail2ban
+      ansible.builtin.apt:
+        name: fail2ban
+        state: present
+        update_cache: true
+
+    - name: Copy PVE fail2ban filter
+      ansible.builtin.copy:
+        src: pve/filter.d/proxmox-virtual-environement.conf
+        dest: /etc/fail2ban/filter.d/proxmox-virtual-environement.conf
+        mode: '0644'
+      when: _proxmox_type == 'pve'
+      notify: restart_fail2ban
+
+    - name: Copy PVE fail2ban jail
+      ansible.builtin.copy:
+        src: pve/jail.d/proxmox-virtual-environement.conf
+        dest: /etc/fail2ban/jail.d/proxmox-virtual-environement.conf
+        mode: '0644'
+      when: _proxmox_type == 'pve'
+      notify: restart_fail2ban
+
+    - name: Copy PBS fail2ban filter
+      ansible.builtin.copy:
+        src: pbs/filter.d/proxmox-backup-server.conf
+        dest: /etc/fail2ban/filter.d/proxmox-backup-server.conf
+        mode: '0644'
+      when: _proxmox_type == 'pbs'
+      notify: restart_fail2ban
+
+    - name: Copy PBS fail2ban jail
+      ansible.builtin.copy:
+        src: pbs/jail.d/proxmox-backup-server.conf
+        dest: /etc/fail2ban/jail.d/proxmox-backup-server.conf
+        mode: '0644'
+      when: _proxmox_type == 'pbs'
+      notify: restart_fail2ban
+
+    - name: Check if backend already configured in defaults-debian.conf
+      ansible.builtin.shell: |
+        grep -Fqs "backend = systemd" /etc/fail2ban/jail.d/defaults-debian.conf
+      register: _backend_configured
+      changed_when: false
+      failed_when: false
+
+    - name: Add systemd backend to defaults-debian.conf
+      ansible.builtin.lineinfile:
+        path: /etc/fail2ban/jail.d/defaults-debian.conf
+        line: "\nbackend = systemd"
+        create: true
+        mode: '0644'
+      when: _backend_configured.rc != 0
+      notify: restart_fail2ban
+
+    - name: Enable and start fail2ban service
+      ansible.builtin.systemd:
+        name: fail2ban
+        enabled: true
+        state: started
+
+# SSH user configuration
+- name: Create SSH user
+  when: proxmox_create_ssh_user | bool and proxmox_ssh_username | length > 0
+  block:
+    - name: Ensure sudo is installed
+      ansible.builtin.apt:
+        name: sudo
+        state: present
+
+    - name: Create new SSH user
+      ansible.builtin.user:
+        name: "{{ proxmox_ssh_username }}"
+        shell: "{{ proxmox_ssh_user_shell }}"
+        groups: sudo
+        append: true
+        create_home: true
+        password: "{{ proxmox_ssh_user_password | password_hash('sha512') }}"
+        update_password: on_create
+
+    - name: Create .ssh directory for user
+      ansible.builtin.file:
+        path: "/home/{{ proxmox_ssh_username }}/.ssh"
+        state: directory
+        owner: "{{ proxmox_ssh_username }}"
+        group: "{{ proxmox_ssh_username }}"
+        mode: '0700'
+
+    - name: Generate SSH key pair for user
+      ansible.builtin.command:
+        cmd: "ssh-keygen -t rsa -b 4096 -f /home/{{ proxmox_ssh_username }}/.ssh/id_rsa -q -N ''"
+      args:
+        creates: "/home/{{ proxmox_ssh_username }}/.ssh/id_rsa"
+      when: proxmox_ssh_generate_keys | bool
+
+    - name: Copy public key to authorized_keys
+      ansible.builtin.copy:
+        src: "/home/{{ proxmox_ssh_username }}/.ssh/id_rsa.pub"
+        dest: "/home/{{ proxmox_ssh_username }}/.ssh/authorized_keys"
+        remote_src: true
+        owner: "{{ proxmox_ssh_username }}"
+        group: "{{ proxmox_ssh_username }}"
+        mode: '0600'
+      when: proxmox_ssh_generate_keys | bool
+
+    - name: Allow sudo group to SSH
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        line: "AllowGroups sudo"
+        state: present
+      when: proxmox_ssh_allow_sudo_group | bool
+      notify: restart_ssh
+
+    - name: Disable root SSH login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin'
+        line: "PermitRootLogin no"
+        state: present
+      when: proxmox_ssh_deny_root_login | bool
+      notify: restart_ssh
+
+# PVE user management (only for Proxmox VE)
+- name: Create PVE admin user
+  when:
+    - _proxmox_type == 'pve'
+    - proxmox_create_pve_admin | bool
+    - proxmox_pve_admin_username | length > 0
+  block:
+    - name: Check if PVE user already exists
+      ansible.builtin.shell: |
+        pveum user list | grep -q "{{ proxmox_pve_admin_username }}@pve "
+      register: _pve_user_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Create PVE user
+      ansible.builtin.command:
+        cmd: "pveum user add {{ proxmox_pve_admin_username }}@pve"
+      when: _pve_user_exists.rc != 0
+      register: _pve_user_created
+      until: _pve_user_created.rc == 0
+      retries: 3
+      delay: 1
+
+    - name: Set PVE user password
+      ansible.builtin.shell: |
+        echo "{{ proxmox_pve_admin_password }}" | pveum passwd "{{ proxmox_pve_admin_username }}@pve"
+      when: _pve_user_exists.rc != 0 and proxmox_pve_admin_password | length > 0
+      no_log: true
+
+    - name: Check if admin group exists
+      ansible.builtin.shell: |
+        pveum group list | grep -q "{{ proxmox_pve_admin_group }}"
+      register: _pve_group_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Create PVE admin group
+      ansible.builtin.command:
+        cmd: "pveum group add {{ proxmox_pve_admin_group }} -comment '{{ proxmox_pve_admin_group_comment }}'"
+      when: _pve_group_exists.rc != 0
+
+    - name: Check if group has Administrator role
+      ansible.builtin.shell: |
+        pveum acl list | grep "{{ proxmox_pve_admin_group }}" | grep -q "Administrator"
+      register: _pve_acl_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Assign Administrator role to group
+      ansible.builtin.command:
+        cmd: "pveum acl modify / -group {{ proxmox_pve_admin_group }} -role Administrator"
+      when: _pve_acl_exists.rc != 0
+
+    - name: Add user to admin group
+      ansible.builtin.command:
+        cmd: "pveum user modify {{ proxmox_pve_admin_username }}@pve -group {{ proxmox_pve_admin_group }}"
+      when: _pve_user_exists.rc != 0
+
+    - name: Disable root@pam user
+      ansible.builtin.command:
+        cmd: "pveum user modify root@pam -enable 0"
+      when: proxmox_pve_disable_root_pam | bool

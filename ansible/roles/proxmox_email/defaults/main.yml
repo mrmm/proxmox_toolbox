@@ -1,0 +1,20 @@
+---
+# defaults file for proxmox_email
+
+# Email configuration (LEGACY - PVE 8+ has GUI configuration)
+# This role is maintained for backwards compatibility
+
+proxmox_email_enabled: false
+
+# SMTP server settings
+proxmox_email_smtp_host: "smtp.gmail.com"
+proxmox_email_smtp_port: 587
+proxmox_email_smtp_use_tls: true
+
+# SMTP authentication
+proxmox_email_smtp_user: ""
+proxmox_email_smtp_password: ""
+
+# Email addresses
+proxmox_email_from: "root@{{ ansible_hostname }}"
+proxmox_email_root_alias: ""  # Where to forward root emails

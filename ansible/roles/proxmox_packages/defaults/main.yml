@@ -1,0 +1,21 @@
+---
+# defaults file for proxmox_packages
+
+# List of essential packages to install
+proxmox_essential_packages:
+  - ifupdown2
+  - git
+  - sudo
+  - libsasl2-modules
+  - lshw
+  - lm-sensors
+  - rsyslog
+
+# Whether to enable non-free-firmware repository
+proxmox_enable_nonfree_firmware: false
+
+# Whether to install AMD microcode (requires non-free-firmware)
+proxmox_install_amd_microcode: false
+
+# Update apt cache before installing packages
+proxmox_update_cache: true

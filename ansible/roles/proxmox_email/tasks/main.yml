@@ -1,0 +1,59 @@
+---
+# tasks file for proxmox_email
+
+# NOTE: This role is LEGACY. Proxmox VE 8+ has GUI-based email configuration
+# which is recommended over this role. This is maintained for backwards compatibility
+# with PVE 7 and for users who prefer configuration management.
+
+- name: Display legacy warning
+  ansible.builtin.debug:
+    msg: "WARNING: This role is for legacy email configuration. Proxmox VE 8+ has GUI-based email configuration which is recommended."
+  when: proxmox_email_enabled | bool
+
+- name: Configure Postfix for email notifications
+  when: proxmox_email_enabled | bool
+  block:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - postfix
+          - libsasl2-modules
+        state: present
+        update_cache: true
+
+    - name: Configure Postfix main.cf
+      ansible.builtin.template:
+        src: main.cf.j2
+        dest: /etc/postfix/main.cf
+        mode: '0644'
+        backup: true
+      notify: restart_postfix
+
+    - name: Configure SASL password
+      ansible.builtin.template:
+        src: sasl_passwd.j2
+        dest: /etc/postfix/sasl_passwd
+        mode: '0600'
+      when: proxmox_email_smtp_user | length > 0
+      no_log: true
+      notify:
+        - postmap_sasl_passwd
+        - restart_postfix
+
+    - name: Configure root email alias
+      ansible.builtin.lineinfile:
+        path: /etc/aliases
+        regexp: '^root:'
+        line: "root: {{ proxmox_email_root_alias }}"
+        create: true
+        mode: '0644'
+      when: proxmox_email_root_alias | length > 0
+      notify:
+        - newaliases
+        - restart_postfix
+
+    - name: Enable and start Postfix
+      ansible.builtin.systemd:
+        name: postfix
+        enabled: true
+        state: started

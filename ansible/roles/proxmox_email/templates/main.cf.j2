@@ -1,0 +1,30 @@
+# Postfix main.cf - Managed by Ansible
+# For Proxmox email notifications
+
+# Basic settings
+myhostname = {{ ansible_hostname }}
+mydomain = {{ ansible_domain | default('localdomain') }}
+myorigin = $mydomain
+
+# SMTP relay settings
+relayhost = [{{ proxmox_email_smtp_host }}]:{{ proxmox_email_smtp_port }}
+
+{% if proxmox_email_smtp_use_tls %}
+# TLS settings
+smtp_use_tls = yes
+smtp_sasl_tls_security_options = noanonymous
+{% endif %}
+
+# SASL authentication
+{% if proxmox_email_smtp_user | length > 0 %}
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+{% endif %}
+
+# Network settings
+inet_interfaces = loopback-only
+inet_protocols = ipv4
+
+# Default settings
+compatibility_level = 2

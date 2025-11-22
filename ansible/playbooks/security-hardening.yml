@@ -1,0 +1,41 @@
+---
+# Security hardening playbook for Proxmox servers
+# Configures fail2ban, SSH security, and creates admin users
+
+- name: Harden Proxmox Security
+  hosts: proxmox
+  become: true
+
+  vars:
+    # Fail2ban configuration
+    proxmox_enable_fail2ban: true
+
+    # SSH user configuration
+    proxmox_create_ssh_user: true
+    proxmox_ssh_username: "admin"
+    # Set password using ansible-vault or prompt
+    # proxmox_ssh_user_password: "{{ vault_ssh_password }}"
+    proxmox_ssh_allow_sudo_group: true
+    proxmox_ssh_deny_root_login: true
+    proxmox_ssh_generate_keys: true
+
+    # PVE admin user (for Proxmox VE only)
+    proxmox_create_pve_admin: true
+    proxmox_pve_admin_username: "pvadmin"
+    # Set password using ansible-vault or prompt
+    # proxmox_pve_admin_password: "{{ vault_pve_password }}"
+    proxmox_pve_admin_group: "administrators"
+    proxmox_pve_disable_root_pam: false  # Set to true after verifying new user works
+
+  roles:
+    - proxmox_security
+
+  post_tasks:
+    - name: Display security information
+      ansible.builtin.debug:
+        msg:
+          - "Security hardening complete!"
+          - "SSH user created: {{ proxmox_ssh_username }}"
+          - "PVE admin created: {{ proxmox_pve_admin_username }}@pve"
+          - "IMPORTANT: Test SSH access before disconnecting!"
+          - "IMPORTANT: Test PVE GUI access before disabling root@pam!"

@@ -1,0 +1,27 @@
+---
+galaxy_info:
+  role_name: proxmox_updates
+  author: Tonton Jo
+  description: Update Proxmox system and remove subscription message
+  company: tontonjo
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - proxmox
+    - pve
+    - pbs
+    - update
+    - system
+
+dependencies: []
+
+collections:
+  - community.general
+  - ansible.posix

@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: proxmox_storage
+  author: Tonton Jo
+  description: Configure SWAP and S.M.A.R.T. settings for Proxmox
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - proxmox
+    - storage
+    - swap
+    - smart
+
+dependencies: []
+collections:
+  - community.general

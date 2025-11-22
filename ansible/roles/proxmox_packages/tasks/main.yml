@@ -1,0 +1,66 @@
+---
+# tasks file for proxmox_packages
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: proxmox_update_cache | bool
+
+- name: Install essential packages
+  ansible.builtin.apt:
+    name: "{{ proxmox_essential_packages }}"
+    state: present
+
+- name: Enable non-free-firmware repository
+  when: proxmox_enable_nonfree_firmware | bool or proxmox_install_amd_microcode | bool
+  block:
+    - name: Check if debian.sources exists (modern format)
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list.d/debian.sources
+      register: _debian_sources
+
+    - name: Enable non-free-firmware in debian.sources
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/debian.sources
+        regexp: '^Components: main contrib$'
+        replace: 'Components: main contrib non-free-firmware'
+      when:
+        - _debian_sources.stat.exists
+      register: _sources_modern
+
+    - name: Check if sources.list exists (legacy format)
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list
+      register: _sources_list
+
+    - name: Check if non-free-firmware already enabled in sources.list
+      ansible.builtin.shell: |
+        grep -q "non-free-firmware" /etc/apt/sources.list
+      register: _nonfree_check
+      changed_when: false
+      failed_when: false
+      when:
+        - _sources_list.stat.exists
+        - not _debian_sources.stat.exists
+
+    - name: Enable non-free-firmware in sources.list
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list
+        regexp: '^(.* main contrib)(.*)$'
+        replace: '\1 non-free-firmware\2'
+      when:
+        - _sources_list.stat.exists
+        - not _debian_sources.stat.exists
+        - _nonfree_check.rc != 0
+      register: _sources_legacy
+
+    - name: Update apt cache after enabling non-free-firmware
+      ansible.builtin.apt:
+        update_cache: true
+      when: _sources_modern is changed or _sources_legacy is changed
+
+- name: Install AMD microcode
+  ansible.builtin.apt:
+    name: amd64-microcode
+    state: present
+  when: proxmox_install_amd_microcode | bool

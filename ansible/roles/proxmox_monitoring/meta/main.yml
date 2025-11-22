@@ -1,0 +1,20 @@
+---
+galaxy_info:
+  role_name: proxmox_monitoring
+  author: Tonton Jo
+  description: Configure SNMP monitoring for Proxmox
+  license: GPL-3.0-only
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+  galaxy_tags:
+    - proxmox
+    - snmp
+    - monitoring
+
+dependencies: []
+collections:
+  - community.general
